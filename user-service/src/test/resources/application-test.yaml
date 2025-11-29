@@ -1,0 +1,30 @@
+
+spring:
+  application:
+    name: user_service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/users_db
+    username: Nero
+    password: 0907
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+        format_sql: true
+  liquibase:
+    enabled: false
+
+  logging:
+    level:
+      com.example.user_service: DEBUG
+      org.springframework.transaction: DEBUG
+
+  profiles:
+    active: dev
+
+server:
+  port: 8080

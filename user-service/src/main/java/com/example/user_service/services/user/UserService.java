@@ -36,7 +36,6 @@ public class UserService {
         User existingUser = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Пользователь с ID: " + id + " не найден"));
 
-        //проверка email
         if (userRequest.getEmail() != null && !existingUser.getEmail().equals(userRequest.getEmail())) {
             if (userRepository.existsByEmail(userRequest.getEmail())) {
                 throw new RuntimeException("Этот email уже используется. Воспользуйтесь восстановлением пароля.");
@@ -44,7 +43,6 @@ public class UserService {
             existingUser.setEmail(userRequest.getEmail());
         }
 
-        //проверка login
         if (userRequest.getLogin() != null && !existingUser.getLogin().equals(userRequest.getLogin())) {
             if (userRepository.existsByLogin(userRequest.getLogin())) {
                 throw new RuntimeException("Login: " + userRequest.getLogin() + " уже используется");
