@@ -19,7 +19,6 @@ public class ErrorResponse {
     private String path;
     private List<String> details;
 
-    // Конструкторы
     public ErrorResponse(int status, String error, String message, Instant timestamp) {
         this.status = status;
         this.error = error;
