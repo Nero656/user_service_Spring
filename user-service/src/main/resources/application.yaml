@@ -1,15 +1,23 @@
 spring:
   application:
-    name: user_service
+    name: user-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/users_db
+    url: jdbc:postgresql://users_db:5432/users_db
     username: Nero
     password: 0907
     driver-class-name: org.postgresql.Driver
 
   liquibase:
     enabled: true
+
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.trusted.packages: "*"
 
   jpa:
     hibernate:
@@ -19,9 +27,3 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-
-  profiles:
-    active: dev
-
-server:
-  port: 8080
