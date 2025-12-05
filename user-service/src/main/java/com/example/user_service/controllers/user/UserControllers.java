@@ -36,4 +36,17 @@ public class UserControllers {
         userService.deleteUser(id);
         return new UserResponse();
     }
+
+    //-----------------Без кафки-------------------
+
+    @PostMapping("/no_kafka")
+    public ResponseEntity<UserResponse> createUserWithOutKafka(@RequestBody UserRequest userRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUserWithOutKafka(userRequest));
+    }
+
+    @DeleteMapping("/no_kafka/{id}")
+    public UserResponse deleteUserWithOutKafka(@PathVariable Long id){
+        userService.deleteUserWithOutKafka(id);
+        return new UserResponse();
+    }
 }

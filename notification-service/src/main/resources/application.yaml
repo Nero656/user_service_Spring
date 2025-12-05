@@ -3,13 +3,13 @@ spring:
     name: notification-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/users_db
+    url: jdbc:postgresql://notification_db:5432/notification_db
     username: Nero
     password: 0907
     driver-class-name: org.postgresql.Driver
 
   liquibase:
-    enabled: true
+    enabled: false
 
   jpa:
     hibernate:
@@ -20,8 +20,31 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-  profiles:
-    active: dev
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: '*'
+
+  mail:
+    host: sandbox.smtp.mailtrap.io
+    port: 587
+    username: 6bfca975fb97a4
+    password: dfd8c8ccada789
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.debug: true
+
+  topic:
+    send-order: send-order-event
+
+profiles:
+  active: dev
 
 server:
-  port: 8081
+  port: 18081

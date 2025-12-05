@@ -1,14 +1,18 @@
-FROM eclipse-temurin:25-jdk
-
-RUN apt-get update && \
-    apt-get install -y maven && \
-    apt-get clean
-
+FROM bellsoft/liberica-openjdk-alpine:25 AS builder
 WORKDIR /app
 
+RUN apk add --no-cache maven
+
 COPY pom.xml .
-RUN mvn -B dependency:go-offline
+RUN mvn dependency:go-offline
 
-COPY . .
+COPY src ./src
+RUN mvn clean package -DskipTests
 
-CMD ["mvn", "spring-boot:run"]
+RUN mvn test
+
+FROM bellsoft/liberica-openjre-alpine:25
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+EXPOSE 18081
+ENTRYPOINT ["java", "-jar", "app.jar"]
