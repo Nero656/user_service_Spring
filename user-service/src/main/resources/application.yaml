@@ -18,6 +18,8 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.trusted.packages: "*"
+  hateoas:
+    use-hal-as-default-json-media-type: true
 
   jpa:
     hibernate:

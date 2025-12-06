@@ -15,5 +15,4 @@ public class UserCreatedEvent
     private Long id;
     private String username;
     private String email;
-
 }
