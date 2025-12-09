@@ -3,6 +3,7 @@ volumes:
   pg_spring_notifications:
   kafka_data:
   zookeeper_data:
+  swagger_editor_data:
 
 services:
   users_db:
@@ -114,4 +115,37 @@ services:
       start_period: 30s
       retries: 5
 
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    restart: unless-stopped
+    ports:
+      - "8085:8080"
+    environment:
+      - SWAGGER_JSON_URL=/api-docs/user-service.json
+      - URLS=[{url:"/api-docs/user-service.json",name:"User Service"},{url:"/api-docs/notification-service.json",name:"Notification Service"}]
+    volumes:
+      - ./api-docs:/usr/share/nginx/html/api-docs
+    depends_on:
+      - user-service
+      - notification-service
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  swagger-editor:
+    image: swaggerapi/swagger-editor
+    container_name: swagger-editor
+    restart: unless-stopped
+    ports:
+      - "8086:8080"
+    volumes:
+      - swagger_editor_data:/tmp
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8086/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
