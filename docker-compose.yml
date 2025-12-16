@@ -1,9 +1,11 @@
-version: "3.9"
+version: '3.8'
 
 volumes:
   pg_spring_users:
+  pg_spring_notifications:
   kafka_data:
   zookeeper_data:
+  swagger_editor_data:
 
 services:
   users_db:
@@ -11,16 +13,43 @@ services:
     image: postgres:17.1-alpine
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=Nero
-      - POSTGRES_PASSWORD=0907
-      - POSTGRES_DB=users_db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${USERS_DB_NAME}
     volumes:
       - pg_spring_users:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${USERS_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  notification_db:
+    container_name: docker_spring_notificationDB
+    image: postgres:17.1-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${NOTIFICATION_DB_NAME}
+    volumes:
+      - pg_spring_notifications:/var/lib/postgresql/data
+    ports:
+      - "${NOTIFICATION_DB_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${NOTIFICATION_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
+    image: confluentinc/cp-zookeeper:${ZOOKEEPER_VERSION}
     container_name: zookeeper
     restart: unless-stopped
     environment:
@@ -30,9 +59,11 @@ services:
       - zookeeper_data:/var/lib/zookeeper
     ports:
       - "2181:2181"
+    networks:
+      - app-network
 
   kafka:
-    image: confluentinc/cp-kafka:7.6.1
+    image: confluentinc/cp-kafka:${KAFKA_VERSION}
     container_name: kafka
     restart: unless-stopped
     depends_on:
@@ -47,35 +78,177 @@ services:
       - kafka_data:/var/lib/kafka
     ports:
       - "9092:9092"
+    networks:
+      - app-network
 
-  # user-service:
-  #   container_name: user-service
-  #   build:
-  #     context: ./user-service
-  #     dockerfile: Dockerfile
-  #   depends_on:
-  #     - users_db
-  #     - kafka
-  #   environment:
-  #     SPRING_DATASOURCE_URL: jdbc:postgresql://users_db:5432/users_db
-  #     SPRING_DATASOURCE_USERNAME: Nero
-  #     SPRING_DATASOURCE_PASSWORD: 0907
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #   ports:
-  #     - "8081:8081"
+  config-server:
+    container_name: config-server
+    build:
+      context: ./config-server
+    image: ${CONFIG_SERVER_IMAGE:-config-server:latest}
+    restart: unless-stopped
+    ports:
+      - "${CONFIG_SERVER_PORT:-8888}:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-native}
+      ENCRYPT_KEY: ${CONFIG_ENCRYPT_KEY:-changeit}
+    volumes:
+      - ./config-repo:/config
+      - ./config-server:/app
+      - ${M2_DIR}:/root/.m2
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8888/actuator/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - app-network
 
-  # notification-service:
-  #   container_name: notification-service
-  #   build:
-  #     context: ./notification-service
-  #     dockerfile: Dockerfile
-  #   depends_on:
-  #     - users_db
-  #     - kafka
-  #   environment:
-  #     SPRING_DATASOURCE_URL: jdbc:postgresql://users_db:5432/users_db
-  #     SPRING_DATASOURCE_USERNAME: Nero
-  #     SPRING_DATASOURCE_PASSWORD: 0907
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #   ports:
-  #     - "8082:8082"
+  eureka-server:
+    image: ${EUREKA_IMAGE}
+    build:
+      context: ./service-discovery
+    container_name: eureka-server
+    restart: unless-stopped
+    ports:
+      - "${EUREKA_PORT}:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+    volumes:
+      - ./service-discovery:/app
+      - ${M2_DIR}:/root/.m2
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8761/actuator/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  user-service:
+    image: ${USER_SERVICE_IMAGE}
+    build:
+      context: ./user-service
+    container_name: user-service
+    restart: unless-stopped
+    command: mvn spring-boot:run
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+      SERVER_PORT: 8080
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://users_db:5432/${USERS_DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ./user-service:/app
+      - ${M2_DIR}:/root/.m2
+    depends_on:
+      - config-server
+      - kafka
+      - users_db
+      - eureka-server
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  notification-service:
+    image: ${NOTIFICATION_SERVICE_IMAGE}
+    container_name: notification-service
+    build:
+      context: ./notification-service
+    restart: unless-stopped
+    command: ./mvnw spring-boot:run
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: 8080
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification_db:5432/${NOTIFICATION_DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./notification-service:/app
+      - ${M2_DIR}:/root/.m2
+    depends_on:
+      - config-server
+      - kafka
+      - notification_db
+      - eureka-server
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  gateway-service:
+    image: ${GATEWAY_IMAGE}
+    container_name: api-gateway
+    build:
+      context: ./gateway-service
+    restart: unless-stopped
+    command: ./mvnw spring-boot:run
+    ports:
+      - "${GATEWAY_SERVICE_PORT}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    volumes:
+      - ./gateway-service:/app
+      - ${M2_DIR}:/root/.m2
+    depends_on:
+      - config-server
+      - user-service
+      - notification-service
+      - eureka-server
+    networks:
+      - app-network
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    restart: unless-stopped
+    ports:
+      - "${SWAGGER_UI_PORT}:8080"
+    environment:
+      - SWAGGER_JSON_URL=/api-docs/user-service.json
+      - URLS=[{url:"/api-docs/user-service.json",name:"User Service"},{url:"/api-docs/notification-service.json",name:"Notification Service"}]
+    volumes:
+      - ./api-docs:/usr/share/nginx/html/api-docs
+    depends_on:
+      - user-service
+      - notification-service
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app-network
+
+  swagger-editor:
+    image: swaggerapi/swagger-editor
+    container_name: swagger-editor
+    restart: unless-stopped
+    ports:
+      - "${SWAGGER_EDITOR_PORT}:8080"
+    volumes:
+      - swagger_editor_data:/tmp
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

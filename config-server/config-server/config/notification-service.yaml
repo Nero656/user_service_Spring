@@ -1,0 +1,64 @@
+server:
+  port: 18081
+
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: jdbc:postgresql://notification_db:5432/notification_db
+    username: Nero
+    password: 0907
+    driver-class-name: org.postgresql.Driver
+
+  liquibase:
+    enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: '*'
+
+  mail:
+    host: sandbox.smtp.mailtrap.io
+    port: 587
+    username: 7814ce3a4812ef
+    password: a51acea6eda9c8
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.debug: true
+
+  topic:
+    send-order: send-order-event
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://eureka-server:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh
+
+profiles:
+  active: dev

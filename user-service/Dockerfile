@@ -1,15 +1,6 @@
-FROM eclipse-temurin:25-jdk
-
-RUN apt-get update && \
-    apt-get install -y maven && \
-    apt-get clean
+FROM bellsoft/liberica-openjdk-alpine:25
 
 WORKDIR /app
+RUN apk add --no-cache maven
 
-COPY pom.xml .
-RUN mvn -B dependency:go-offline
-
-COPY . .
-
-# Команда запуска
 CMD ["mvn", "spring-boot:run"]
