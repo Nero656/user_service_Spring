@@ -17,7 +17,7 @@ import java.util.Map;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("api/users")
 @RequiredArgsConstructor
 public class UserControllers {
     @Autowired

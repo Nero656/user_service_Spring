@@ -33,4 +33,8 @@ build/
 ### VS Code ###
 .vscode/
 
+# Config
+.env
+config-repo/*.yml
+
 src/main/resources/application.yaml
