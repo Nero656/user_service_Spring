@@ -93,7 +93,6 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-native}
       ENCRYPT_KEY: ${CONFIG_ENCRYPT_KEY:-changeit}
     volumes:
-      - ./config-repo:/config
       - ./config-server:/app
       - ${M2_DIR}:/root/.m2
     healthcheck:
